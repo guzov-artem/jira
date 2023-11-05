@@ -1,15 +1,15 @@
 import requests
-import json
 import pandas as pd
 import matplotlib.pyplot as plt
-import datetime
+from dateutil import parser
+import yaml
 
 def make_duration_graf(json_data):
     duration_data = list()
     for issue in json_data["issues"]:
         if issue["fields"]["status"]["name"] == "Closed":
-            created_time = datetime.datetime.fromisoformat(issue["fields"]["created"])
-            closed_time = datetime.datetime.fromisoformat(issue["fields"]["resolutiondate"])
+            created_time = parser.parse(issue["fields"]["created"])
+            closed_time = parser.parse(issue["fields"]["resolutiondate"])
             duration = (closed_time - created_time).total_seconds() / 3600 / 24
             duration_data.append({"id": issue["id"], "duration": duration })
 
@@ -18,14 +18,18 @@ def make_duration_graf(json_data):
     plt.xlabel('Время в открытом состоянии (дни)')
     plt.ylabel('Количество задач')
     plt.title('Гистограмма времени в открытом состоянии')
+
+    # Сохранение графика в файл
+    plt.savefig('graphs\\duration.png')
+
     plt.show()
 
 def make_summ_graf(json_data):
     task_data = list()
     for issue in json_data["issues"]:
-        created_time = datetime.datetime.fromisoformat(issue["fields"]["created"])
+        created_time = parser.parse(issue["fields"]["created"])
         if issue["fields"]["resolutiondate"] != None:
-            closed_time = datetime.datetime.fromisoformat(issue["fields"]["resolutiondate"])
+            closed_time = parser.parse(issue["fields"]["resolutiondate"])
         else:
             closed_time = None
         #duration = (closed_time - created_time).total_seconds() / 3600 / 24
@@ -60,6 +64,8 @@ def make_summ_graf(json_data):
     plt.xticks(rotation=45)
     plt.legend()
     plt.grid(True)
+
+    plt.savefig('graphs\\summ_tasks.png')
 
     plt.show()
 
@@ -100,23 +106,10 @@ def make_top_authors_graf(json_data):
     plt.gca().invert_yaxis()  # Инвертировать ось ординат для отображения наибольшего количества сверху
     plt.grid(axis='x', linestyle='--', alpha=0.6)
 
+    plt.savefig('graphs\\top_users.png')
+
     plt.show()
 
-def make_duration_graf(json_data):
-    duration_data = list()
-    for issue in json_data["issues"]:
-        if issue["fields"]["status"]["name"] == "Closed":
-            created_time = datetime.datetime.fromisoformat(issue["fields"]["created"])
-            closed_time = datetime.datetime.fromisoformat(issue["fields"]["resolutiondate"])
-            duration = (closed_time - created_time).total_seconds() / 3600 / 24
-            duration_data.append({"id": issue["id"], "duration": duration })
-
-    durations = [issue["duration"] for issue in duration_data]
-    plt.hist(durations, bins=10, edgecolor='black')  # Разделить на 10 бинов (интервалов)
-    plt.xlabel('Время в открытом состоянии (дни)')
-    plt.ylabel('Количество задач')
-    plt.title('Гистограмма времени в открытом состоянии')
-    plt.show()
 
 def make_logged_time(json_data):
     data = list()
@@ -138,6 +131,8 @@ def make_logged_time(json_data):
     plt.title('Гистограмма затраченного времени на задачи')
     plt.yticks(range(time_grouped['task_count'].min(), time_grouped['task_count'].max() + 1))  # Установка целых делений на оси y
     plt.grid(True)
+
+    plt.savefig('graphs\\logged_time.png')
 
     plt.show()
 
@@ -161,17 +156,27 @@ def make_priority_graf(json_data):
     plt.title('График количества задач по степени серьезности')
     plt.grid(True)
 
+    plt.savefig('graphs\\priority_tasks.png')
+
     plt.show()
 
-url = "https://issues.apache.org/jira/rest/api/2/search?jql=project=AMQ"  # Замените URL на адрес вашего API
-response = requests.get(url)
 
-if response.status_code == 200:
-    json_data = response.json()  # Распарсить JSON-ответ
-    make_duration_graf(json_data)
-    make_summ_graf(json_data)
-    make_top_authors_graf(json_data)
-    make_logged_time(json_data)
-    make_priority_graf(json_data)
-else:
-    print("Не удалось получить JSON. Код состояния:", response.status_code)
+if __name__ == '__main__':
+    # Открываем и читаем файл config.yaml
+    with open('config.yaml', 'r') as file:
+        config = yaml.safe_load(file)
+
+    # Получаем значение URL из конфигурации
+    url = config['url']
+
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        json_data = response.json()  # Распарсить JSON-ответ
+        make_duration_graf(json_data)
+        make_summ_graf(json_data)
+        make_top_authors_graf(json_data)
+        make_logged_time(json_data)
+        make_priority_graf(json_data)
+    else:
+        print("Не удалось получить JSON. Код состояния:", response.status_code)
